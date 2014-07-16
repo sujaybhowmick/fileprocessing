@@ -21,11 +21,12 @@ current_time_in_millis = lambda: int(round(time() * 1000))
 def process_chunk(row_line):
     str_line = StringIO(row_line)
     reader = csv.reader(str_line, delimiter=',')
+
     key_values = {}
-    values = []
     for row in reader:
         if row:
             for item in row:
+                values = []
                 column = item.split('=')
                 if len(column) == 2:
                     values.append(column[1])
@@ -51,14 +52,24 @@ def chunk(n, iterable, pad_value=None):
 #
 
 def write_parsed_data(key_values, output_file_name):
-
     with open(output_file_name, 'a+') as f:
         writer = csv.writer(f)
-        writer.writerow(list(key_values.keys()))
+        #writer.writerow(list(key_values.keys()))
+        row = []
         for k, v in key_values.iteritems():
-            writer.writerow(v)
+            row += v
+        writer.writerow(row)
+        
 
 
+def read_write_header(file_name_in, file_name_out):
+    file_data = open(file_name_in, 'rU')
+    with open(file_name_out, 'w') as f:
+        header = process_chunk(file_data.readline())
+        writer = csv.writer(f)
+        writer.writerow(list(header.keys()))
+    file_data.close()
+        
 #
 # The main method to start
 #
@@ -70,29 +81,34 @@ if __name__ == '__main__':
     
     with open(json_conf_file, 'r') as json_data_file:
         conf = json.load(json_data_file)
+   
 
-    num_processes = conf['num_processes']
-    # Get the number of processes to start
-    if num_processes:
+
+    num_processes = conf['num_processes'] 
+
+    # number of processes (default is 4)
+    if not num_processes:
         num_processes = 4
 
-    # Get the number of lines to chunk for each process
     lines_to_chunk = conf['chunk_size']
     
-    if lines_to_chunk:
+    # chunk size to be processed by each process
+    # (default 1000)
+    if not lines_to_chunk:
         lines_to_chunk = 1000
 
     file_name_in = os.environ['HOME'] + '/POC.csv'
     file_name_out = os.environ['HOME'] + '/processed_data.csv'
-    print "Processing input file - ", file_name_in
-    file_data = open(file_name_in, 'rU')
-    
-    # open and close the file for first time to make s
-    # sure file is present
-    
-    file_out = open(file_name_out, 'w')
-    file_out.close()
 
+    print "Processing input file - ", file_name_in
+
+    # read and write the header
+    read_write_header(file_name_in, file_name_out)
+    
+    # start processing the file
+    
+    file_data = open(file_name_in, 'rU')
+   
     # create pool of processes
     pool = Pool(num_processes)
 
@@ -100,12 +116,11 @@ if __name__ == '__main__':
     start_time = current_time_in_millis()
 
     # lines to chunk
-    
-
     for chunk in chunk(lines_to_chunk, file_data):
         results = pool.map(process_chunk, chunk)
         for result in results:
             write_parsed_data(result, file_name_out)
+            
 
     # stop timer
     stop_time = current_time_in_millis()
