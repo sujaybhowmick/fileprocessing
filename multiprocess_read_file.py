@@ -6,6 +6,7 @@ from time import time
 from StringIO import StringIO
 import csv
 import os
+import json
 
 
 current_time_in_millis = lambda: int(round(time() * 1000))
@@ -64,22 +65,42 @@ def write_parsed_data(key_values, output_file_name):
 
 if __name__ == '__main__':
 
+    # Parse the config file for parameters
+    json_conf_file = 'conf.json'
+    
+    with open(json_conf_file, 'r') as json_data_file:
+        conf = json.load(json_data_file)
+
+    num_processes = conf['num_processes']
+    # Get the number of processes to start
+    if num_processes:
+        num_processes = 4
+
+    # Get the number of lines to chunk for each process
+    lines_to_chunk = conf['chunk_size']
+    
+    if lines_to_chunk:
+        lines_to_chunk = 1000
+
     file_name_in = os.environ['HOME'] + '/POC.csv'
     file_name_out = os.environ['HOME'] + '/processed_data.csv'
-
+    print "Processing input file - ", file_name_in
     file_data = open(file_name_in, 'rU')
-    # open and close the file for first time to make sure file is present
+    
+    # open and close the file for first time to make s
+    # sure file is present
+    
     file_out = open(file_name_out, 'w')
     file_out.close()
 
     # create pool of processes
-    pool = Pool(4)
+    pool = Pool(num_processes)
 
     # start timer
     start_time = current_time_in_millis()
 
     # lines to chunk
-    lines_to_chunk = 10
+    
 
     for chunk in chunk(lines_to_chunk, file_data):
         results = pool.map(process_chunk, chunk)
@@ -92,6 +113,6 @@ if __name__ == '__main__':
     timeTaken = stop_time - start_time
 
     if timeTaken > 1000:
-        print "Processed file in ", (stop_time - start_time) / 1000, 'secs...'
+        print "Processed output %s file in %d %s\n" % (file_name_out, (stop_time - start_time) / 1000, 'secs...')
     else:
-        print "Processed file in ", (stop_time - start_time), 'millis...'
+        print "Processed output %s file in %d %s\n" % (file_name_out, (stop_time - start_time), 'millis...')
