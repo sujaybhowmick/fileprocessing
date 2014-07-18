@@ -6,15 +6,19 @@ import csv
 from time import time
 import os
 
-
 current_time_in_millis = lambda: int(round(time() * 1000))
 
+# defines the header row for the file to be written
+header = ['col2', 'AmsLogType', 'AmsCtlSeq', 'AmsMod', 'col1', 'col3']
 
-def process_chunk(row_line):
+
+def process_line(row_line):
+    global header
+
     str_line = StringIO(row_line)
     reader = csv.reader(str_line, delimiter=',')
 
-    key_values = {}
+    key_value_row = {}
     for row in reader:
         if row:
             for item in row:
@@ -22,44 +26,51 @@ def process_chunk(row_line):
                 column = item.split('=')
                 if len(column) == 2:
                     values.append(column[1])
-                else:
-                    values.append('')
-                if len(column) == 2:
-                    key_values[column[0]] = values
-    return key_values
+                    key_value_row[column[0]] = values
+
+    for col in header:
+        if key_value_row.__contains__(col):
+            key_value_row[col] = key_value_row[col]
+        else:
+            key_value_row[col] = []
+
+    return key_value_row
 
 
-def read_write_header(file_in, file_out):
-    file_in_data = open(file_in, 'rU')
-    with open(file_out, 'w') as f:
-        header = process_chunk(file_in_data.readline())
-        writer = csv.writer(f)
-        writer.writerow(list(header.keys()))
-    file_in_data.close()
-
-
-def write_parsed_data(key_values, output_file_name):
+def write_parsed_data(key_value_row, output_file_name):
     with open(output_file_name, 'a+') as f:
         writer = csv.writer(f)
         #writer.writerow(list(key_values.keys()))
         row = []
-        for k, v in key_values.iteritems():
-            row += v
+        for k in sorted(key_value_row):
+            row += key_value_row[k]
         writer.writerow(row)
 
 
+def write_header(output_file_name):
+    global header
+    with open(output_file_name, 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+
+
 def main():
-    file_name_in = os.environ['HOME'] + '/reallybig.csv'
+    global header
+    header.sort()
+    file_name_in = os.environ['HOME'] + '/test.csv'
     file_name_out = os.environ['HOME'] + '/processed_data.csv'
 
     print "Processing input file - ", file_name_in
 
     # read and write the header
-    read_write_header(file_name_in, file_name_out)
+
     file_handle = open(file_name_in, 'rU')
     start_time = current_time_in_millis()
+
+    write_header(file_name_out)
+
     for line in file_handle:
-        write_parsed_data(process_chunk(line), file_name_out)
+        write_parsed_data(process_line(line), file_name_out)
 
     stop_time = current_time_in_millis()
 
